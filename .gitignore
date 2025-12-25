@@ -1,0 +1,12 @@
+.DS_Store
+node_modules
+dist
+.turbo
+
+src-tauri/target
+src-tauri/gen
+src-tauri/.cargo
+
+*.log
+*.tmp
+

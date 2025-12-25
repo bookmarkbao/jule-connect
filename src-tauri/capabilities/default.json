@@ -1,0 +1,7 @@
+{
+  "identifier": "default",
+  "description": "Default capability for jule-connect",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
+
