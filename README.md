@@ -12,6 +12,7 @@
 
 - 安装依赖：`npm i`
 - 启动桌面端：`npm run dev`（Tauri dev）
+- 开发端口：默认 `5177`；如需修改，同时改 `vite.config.ts` 和 `src-tauri/tauri.conf.json` 的 `build.devUrl`
 
 ## 说明
 
