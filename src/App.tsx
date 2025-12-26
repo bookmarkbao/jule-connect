@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { RefreshCw } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 type PortInfo = {
   port: number;
@@ -104,70 +109,80 @@ export default function App() {
   }, []);
 
   return (
-    <div className="wrap">
-      <div className="header">
-        <h1>jule-connect</h1>
-        <button onClick={() => refresh()} className="primary">
-          Refresh
-        </button>
-      </div>
-      <div className="muted">
-        内置 provider：Cloudflare Quick Tunnel（需要本机安装 `cloudflared`）
-      </div>
-      {error ? (
-        <div className="muted" style={{ color: "#b91c1c", marginTop: 8 }}>
-          {error}
+    <div className="min-h-screen">
+      <div className="container py-6">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-lg font-semibold">jule-connect</h1>
+          <Button onClick={() => refresh()} variant="secondary" size="sm">
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </Button>
         </div>
-      ) : null}
+        <div className="mt-1 text-sm text-muted-foreground">
+          内置 provider：Cloudflare Quick Tunnel（需要本机安装 `cloudflared`）
+        </div>
+        {error ? <div className="mt-3 text-sm text-destructive">{error}</div> : null}
 
-      <div className="grid">
+        <div className="mt-4 grid gap-3">
         {ports.map((p) => {
           const t = tunnelsByPort.get(p.port);
           const isBusy = !!busy[p.port];
           return (
-            <div key={p.port} className="card">
-              <div>
-                <div className="mono">
-                  {p.protocol.toUpperCase()} : {p.port}
-                </div>
-                <div className="muted mono">pid: {p.pid}</div>
-              </div>
-              <div>
-                <div className="muted">{p.command || "unknown process"}</div>
-                {t ? (
-                  <div style={{ marginTop: 6 }}>
-                    <span className="pill mono">{t.provider}</span>{" "}
-                    <span className="mono">{t.url}</span>
-                    <div className="muted">renewed: {fmtTime(t.last_renewed_at_ms)}</div>
+            <Card key={p.port} className="p-4">
+              <div className="grid gap-3 md:grid-cols-[160px_1fr_auto] md:items-center">
+                <div className="space-y-1">
+                  <div className="font-mono text-sm">
+                    {p.protocol.toUpperCase()} : {p.port}
                   </div>
-                ) : (
-                  <div className="muted">not shared</div>
-                )}
+                  <div className="font-mono text-xs text-muted-foreground">pid: {p.pid}</div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-sm text-muted-foreground break-all">
+                    {p.command || "unknown process"}
+                  </div>
+                  {t ? (
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="secondary" className="font-mono">
+                          {t.provider}
+                        </Badge>
+                        <span className="font-mono text-sm break-all">{t.url}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        renewed: {fmtTime(t.last_renewed_at_ms)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">not shared</div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2 md:justify-end">
+                  {t ? (
+                    <>
+                      <Button onClick={() => onCopy(t.url)} disabled={isBusy} variant="outline" size="sm">
+                        Copy
+                      </Button>
+                      <Button onClick={() => onRenew(p.port)} disabled={isBusy} variant="secondary" size="sm">
+                        Renew
+                      </Button>
+                      <Button onClick={() => onClose(p.port)} disabled={isBusy} variant="destructive" size="sm">
+                        Close
+                      </Button>
+                    </>
+                  ) : (
+                    <Button onClick={() => onOpen(p.port)} disabled={isBusy} size="sm">
+                      Share
+                    </Button>
+                  )}
+                </div>
               </div>
-              <div className="actions">
-                {t ? (
-                  <>
-                    <button onClick={() => onCopy(t.url)} disabled={isBusy}>
-                      Copy
-                    </button>
-                    <button onClick={() => onRenew(p.port)} disabled={isBusy}>
-                      Renew
-                    </button>
-                    <button onClick={() => onClose(p.port)} disabled={isBusy}>
-                      Close
-                    </button>
-                  </>
-                ) : (
-                  <button onClick={() => onOpen(p.port)} className="primary" disabled={isBusy}>
-                    Share
-                  </button>
-                )}
-              </div>
-            </div>
+            </Card>
           );
         })}
+        </div>
       </div>
     </div>
   );
 }
-
