@@ -180,6 +180,7 @@ export default function App() {
                       tunnels={tunnels}
                       onStopAll={() => stopAllTunnels()}
                       onCopy={(url) => copyText(url)}
+                      onOpenUrl={(url) => openExternalUrl(url)}
                       onRenew={(port) => renewTunnel(port)}
                       onClose={(port) => closeTunnel(port)}
                     />
@@ -207,7 +208,7 @@ export default function App() {
                     </div>
                   )}
 
-                  <div className="border-t bg-background px-4 py-2 text-xs text-muted-foreground">
+                  <div className="border-t bg-background px-4 py-2 pb-5 text-xs text-muted-foreground">
                     {sidebar === "tunnels" ? (
                       <span>{tunnels.length} tunnel(s)</span>
                     ) : (

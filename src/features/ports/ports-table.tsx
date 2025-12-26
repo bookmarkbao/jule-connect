@@ -10,22 +10,17 @@ import {
 import {
   ChevronDown,
   ChevronUp,
-  DeleteIcon,
+  Eye,
+  EyeOff,
   MoreHorizontal,
+  Star,
+  Skull,
+  X,
 } from "lucide-react";
 import { ClipLoader } from "react-spinners";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -40,6 +35,7 @@ import {
 } from "@/features/ports/process-type";
 import type { PortInfo, SortKey, TunnelInfo } from "@/store/app-store";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 const SORT_COL_TO_KEY: Record<string, SortKey> = {
   active: "active",
@@ -119,10 +115,18 @@ export function PortsTable({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 px-2"
+                className={[
+                  "h-8 px-2 hover:bg-yellow-500/10 hover:text-yellow-600 dark:hover:text-yellow-400",
+                  isFavorite ? "text-yellow-500" : "text-muted-foreground",
+                ].join(" ")}
                 onClick={(e) => (e.stopPropagation(), onToggleFavorite(p.port))}
+                title={isFavorite ? "Unfavorite" : "Favorite"}
               >
-                {isFavorite ? "★" : "☆"}
+                <Star
+                  className={["h-4 w-4", isFavorite ? "fill-current" : ""].join(
+                    " "
+                  )}
+                />
               </Button>
             </div>
           );
@@ -152,16 +156,18 @@ export function PortsTable({
           />
         ),
         cell: ({ row }) => (
-          <div className="font-mono">
+          <div className="flex items-center gap-2">
             <span
-              className={[
-                "inline-block h-2 w-2 rounded-full",
+              className={cn(
+                "h-2 w-2 shrink-0 rounded-full outline outline-2 outline-offset-2",
                 row.original.is_active
-                  ? "bg-green-500"
-                  : "bg-muted-foreground/40",
-              ].join(" ")}
+                  ? "bg-emerald-500 outline-emerald-500/20"
+                  : "bg-muted-foreground/30 outline-transparent"
+              )}
             />
-            :{row.original.port}
+            <span className="font-mono font-bold text-foreground">
+              :{row.original.port}
+            </span>
           </div>
         ),
         enableSorting: true,
@@ -177,7 +183,9 @@ export function PortsTable({
           />
         ),
         cell: ({ row }) => (
-          <div className="font-mono">{row.original.process_name}</div>
+          <div className="truncate font-medium text-foreground">
+            {row.original.process_name}
+          </div>
         ),
         enableSorting: true,
       },
@@ -258,20 +266,28 @@ export function PortsTable({
           const isWatched = watched.has(p.port);
 
           return (
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-1">
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 px-2"
+                className={[
+                  "h-8 px-2 hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-400",
+                  isWatched ? "text-sky-500" : "text-muted-foreground",
+                ].join(" ")}
                 onClick={(e) => (e.stopPropagation(), onToggleWatched(p.port))}
+                title={isWatched ? "Unwatch" : "Watch"}
               >
-                {isWatched ? "👁" : "👁‍🗨"}
+                {isWatched ? (
+                  <Eye className="h-4 w-4" />
+                ) : (
+                  <EyeOff className="h-4 w-4" />
+                )}
               </Button>
               {/* kill port */}
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 px-2"
+                className="h-8 px-2 text-red-500 hover:bg-red-500/10 hover:text-red-600"
                 disabled={!p.is_active || !p.pid || !!busyPorts[p.port]}
                 title={
                   !p.is_active || !p.pid
@@ -293,7 +309,7 @@ export function PortsTable({
                 {busyPorts[p.port] ? (
                   <ClipLoader size={16} color="currentColor" />
                 ) : (
-                  <DeleteIcon className="h-4 w-4" />
+                  <X className="size-4" />
                 )}
               </Button>
             </div>
@@ -346,48 +362,69 @@ export function PortsTable({
       <Table className="min-w-[750px] table-fixed">
         <TableHeader className="sticky top-0 z-10 bg-background">
           {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <TableHead
-                  key={header.id}
-                  className={widthClassNameForColumn(header.id)}
-                >
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
-                </TableHead>
-              ))}
+            <TableRow key={headerGroup.id} className="hover:bg-transparent">
+              {headerGroup.headers.map((header) => {
+                const isSticky = header.id === "menu";
+                return (
+                  <TableHead
+                    key={header.id}
+                    className={cn(
+                      widthClassNameForColumn(header.id),
+                      isSticky && "sticky right-0 z-20 bg-background/95 backdrop-blur shadow-[-2px_0_2px_-2px_rgba(0,0,0,0.1)] dark:shadow-[-2px_0_2px_-2px_rgba(0,0,0,0.3)]"
+                    )}
+                  >
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
+                );
+              })}
             </TableRow>
           ))}
         </TableHeader>
 
         <TableBody>
           {table.getRowModel().rows?.length ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-state={
-                  selectedPort === row.original.port ? "selected" : undefined
-                }
-                className="cursor-pointer"
-                onClick={() => onSelectPort(row.original.port)}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell
-                    key={cell.id}
-                    className={[
-                      widthClassNameForColumn(cell.column.id),
-                      cellClassNameForColumn(cell.column.id),
-                    ].join(" ")}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
+            table.getRowModel().rows.map((row) => {
+              const isSelected = selectedPort === row.original.port;
+              return (
+                <TableRow
+                  key={row.id}
+                  data-state={isSelected ? "selected" : undefined}
+                  className={cn(
+                    "group cursor-pointer border-b transition-colors hover:bg-muted/50",
+                    isSelected && "bg-muted shadow-[inset_2px_0_0_0_hsl(var(--primary))]"
+                  )}
+                  onClick={() => onSelectPort(row.original.port)}
+                >
+                  {row.getVisibleCells().map((cell) => {
+                    const isSticky = cell.column.id === "menu";
+                    return (
+                      <TableCell
+                        key={cell.id}
+                        className={cn(
+                          "py-2.5",
+                          widthClassNameForColumn(cell.column.id),
+                          cellClassNameForColumn(cell.column.id),
+                          isSticky && cn(
+                            "sticky right-0 z-4 bg-background transition-colors group-hover:bg-muted/50 shadow-[-2px_0_2px_-2px_rgba(0,0,0,0.1)] dark:shadow-[-2px_0_2px_-2px_rgba(0,0,0,0.3)]",
+                            isSelected && "bg-muted"
+                          )
+                        )}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              );
+            })
           ) : (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center">
@@ -437,14 +474,13 @@ function HeaderSortButton({
 
 function widthClassNameForColumn(id: string) {
   if (id === "actions") return "w-[48px]";
-  // if (id === "active") return "w-10";
-  if (id === "port") return "w-[90px]";
-  if (id === "process") return "w-[140px]";
-  if (id === "pid") return "w-[90px]";
-  if (id === "type") return "w-[140px]";
-  if (id === "address") return "w-[140px]";
-  // if (id === "user") return "w-[160px]";
-  // if (id === "menu") return "w-[64px]";
+  if (id === "port") return "w-[100px]";
+  if (id === "process") return "w-[160px]";
+  if (id === "pid") return "w-[80px]";
+  if (id === "type") return "w-[120px]";
+  if (id === "address") return "w-[160px]";
+  if (id === "user") return "w-[100px]";
+  if (id === "menu") return "w-[80px]";
   return "";
 }
 

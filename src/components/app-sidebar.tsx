@@ -1,5 +1,16 @@
 import * as React from "react";
-import { Cloud, Eye, Star } from "lucide-react";
+import {
+  Cloud,
+  Eye,
+  Star,
+  List,
+  Globe,
+  Database,
+  Hammer,
+  Settings,
+  Plug,
+} from "lucide-react";
+import Logo from "@/assets/app-icon.png";
 
 import {
   Sidebar,
@@ -59,8 +70,16 @@ export function AppSidebar({
   return (
     <Sidebar data-testid="app-sidebar" {...props}>
       <SidebarHeader className="gap-3 px-3 py-4">
-        <div className="px-2">
-          <div className="text-sm font-semibold leading-none">jule-connect</div>
+        <div className="flex flex-1 items-center gap-3 px-1">
+          <img src={Logo} alt="Jule Icon" className="h-8 w-8 transition-transform hover:scale-110 duration-300" />
+          <div className="flex flex-col">
+            <div className="font-fredoka text-lg font-bold leading-none tracking-wide text-foreground">
+              Jule Connect
+            </div>
+            <span className="text-[10px] font-medium text-muted-foreground/80 uppercase tracking-wider">
+              Port & Share Manager
+            </span>
+          </div>
         </div>
       </SidebarHeader>
 
@@ -73,6 +92,7 @@ export function AppSidebar({
                 isActive={active === "all"}
                 onClick={() => onActiveChange("all")}
               >
+                <List className="size-4" />
                 <span>All Ports</span>
                 <SidebarMenuBadge>{counts.all}</SidebarMenuBadge>
               </SidebarMenuButton>
@@ -83,7 +103,7 @@ export function AppSidebar({
                 isActive={active === "favorites"}
                 onClick={() => onActiveChange("favorites")}
               >
-                <Star className="size-4" />
+                <Star className="size-4 text-yellow-500 fill-yellow-500" />
                 <span>Favorites</span>
                 <SidebarMenuBadge>{counts.favorites}</SidebarMenuBadge>
               </SidebarMenuButton>
@@ -94,7 +114,7 @@ export function AppSidebar({
                 isActive={active === "watched"}
                 onClick={() => onActiveChange("watched")}
               >
-                <Eye className="size-4" />
+                <Eye className="size-4 text-blue-500" />
                 <span>Watched</span>
                 <SidebarMenuBadge>{counts.watched}</SidebarMenuBadge>
               </SidebarMenuButton>
@@ -110,7 +130,7 @@ export function AppSidebar({
                 isActive={active === "tunnels"}
                 onClick={() => onActiveChange("tunnels")}
               >
-                <Cloud className="size-4" />
+                <Cloud className="size-4 text-orange-500 fill-orange-500" />
                 <span>Cloudflare Tunnels</span>
                 <SidebarMenuBadge>{counts.tunnels}</SidebarMenuBadge>
               </SidebarMenuButton>
@@ -126,6 +146,7 @@ export function AppSidebar({
               onActiveChange={onActiveChange}
               value="webServer"
               label="Web Server"
+              icon={Globe}
               count={counts.byType.webServer}
             />
             <TypeButton
@@ -133,6 +154,7 @@ export function AppSidebar({
               onActiveChange={onActiveChange}
               value="database"
               label="Database"
+              icon={Database}
               count={counts.byType.database}
             />
             <TypeButton
@@ -140,6 +162,7 @@ export function AppSidebar({
               onActiveChange={onActiveChange}
               value="development"
               label="Development"
+              icon={Hammer}
               count={counts.byType.development}
             />
             <TypeButton
@@ -147,6 +170,7 @@ export function AppSidebar({
               onActiveChange={onActiveChange}
               value="system"
               label="System"
+              icon={Settings}
               count={counts.byType.system}
             />
             <TypeButton
@@ -154,6 +178,7 @@ export function AppSidebar({
               onActiveChange={onActiveChange}
               value="other"
               label="Other"
+              icon={Plug}
               count={counts.byType.other}
             />
           </SidebarMenu>
@@ -191,12 +216,14 @@ function TypeButton({
   onActiveChange,
   value,
   label,
+  icon: Icon,
   count,
 }: {
   active: SidebarKey;
   onActiveChange: (key: SidebarKey) => void;
   value: ProcessType;
   label: string;
+  icon: React.ElementType;
   count: number;
 }) {
   const key = `type:${value}` as const;
@@ -206,6 +233,7 @@ function TypeButton({
         isActive={active === key}
         onClick={() => onActiveChange(key)}
       >
+        <Icon className="size-4" />
         <span>{label}</span>
         <SidebarMenuBadge>{count}</SidebarMenuBadge>
       </SidebarMenuButton>

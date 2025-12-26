@@ -1,9 +1,15 @@
-import { Cloud, Copy, X } from "lucide-react";
+import { Cloud, Copy, ExternalLink, RotateCw, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { fmtTime } from "@/features/ports/format";
 import type { TunnelInfo } from "@/store/app-store";
 
@@ -13,12 +19,14 @@ export function TunnelsPane({
   onCopy,
   onRenew,
   onClose,
+  onOpenUrl
 }: {
   tunnels: TunnelInfo[];
   onStopAll: () => void;
   onCopy: (url: string) => void;
   onRenew: (port: number) => void;
   onClose: (port: number) => void;
+  onOpenUrl: (url: string) => void;
 }) {
   return (
     <div className="flex h-full flex-col">
@@ -53,16 +61,71 @@ export function TunnelsPane({
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => onCopy(t.url)}>
-                          <Copy className="h-4 w-4" />
-                          Copy
-                        </Button>
-                        <Button variant="secondary" size="sm" onClick={() => onRenew(t.port)}>
-                          Renew
-                        </Button>
-                        <Button variant="destructive" size="sm" onClick={() => onClose(t.port)}>
-                          Close
-                        </Button>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => onCopy(t.url)}
+                              >
+                                <Copy className="size-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Copy URL</p>
+                            </TooltipContent>
+                          </Tooltip>
+
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="secondary"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => onRenew(t.port)}
+                              >
+                                <RotateCw className="size-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Renew Tunnel</p>
+                            </TooltipContent>
+                          </Tooltip>
+
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="secondary"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => onOpenUrl(t.url)}
+                              >
+                                <ExternalLink className="size-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Open URL</p>
+                            </TooltipContent>
+                          </Tooltip>
+
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="destructive"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => onClose(t.port)}
+                              >
+                                <X className="size-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Close Tunnel</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
                     </div>
                   </Card>

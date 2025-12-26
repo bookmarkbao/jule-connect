@@ -3,6 +3,7 @@ import { ClipLoader } from "react-spinners";
 
 import { Button } from "@/components/ui/button";
 import { SidebarInput, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 
 export function SiteHeader({
   title,
@@ -22,6 +23,10 @@ export function SiteHeader({
   return (
     <header className="flex h-[var(--header-height)] items-center gap-2 border-b bg-background px-4">
        <SidebarTrigger className="-ml-1" />
+       <Separator
+          orientation="vertical"
+          className="mx-2 data-[orientation=vertical]:h-4"
+        />
       <div className="w-[320px]">
         <SidebarInput
           value={searchText}
