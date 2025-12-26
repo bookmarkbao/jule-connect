@@ -3,6 +3,11 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import type { SidebarKey } from "@/components/app-sidebar";
+import { toast } from "@/lib/toast";
+
+function nextFrame() {
+  return new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+}
 
 export type PortInfo = {
   port: number;
@@ -30,6 +35,7 @@ type State = {
   ports: PortInfo[];
   tunnels: TunnelInfo[];
   busyPorts: Record<number, boolean>;
+  isRefreshing: boolean;
   error: string | null;
 
   sidebar: SidebarKey;
@@ -59,10 +65,13 @@ type Actions = {
   toggleWatched: (port: number) => void;
 
   refresh: () => Promise<void>;
+  refreshNow: () => Promise<void>;
   openTunnel: (port: number) => Promise<void>;
   renewTunnel: (port: number) => Promise<void>;
   closeTunnel: (port: number) => Promise<void>;
   stopAllTunnels: () => Promise<void>;
+  killPort: (port: number, pid: number) => Promise<void>;
+  openExternalUrl: (url: string) => Promise<void>;
 
   copyText: (value: string) => Promise<void>;
   clearError: () => void;
@@ -81,6 +90,7 @@ export const useAppStore = create<State & Actions>()(
       ports: [],
       tunnels: [],
       busyPorts: {},
+      isRefreshing: false,
       error: null,
 
       sidebar: "all",
@@ -108,8 +118,20 @@ export const useAppStore = create<State & Actions>()(
           return s.sortKey === key ? { sortAsc: !s.sortAsc } : { sortKey: key, sortAsc: true };
         }),
 
-      toggleFavorite: (port) => set((s) => ({ favorites: toggleInSortedList(s.favorites, port) })),
-      toggleWatched: (port) => set((s) => ({ watched: toggleInSortedList(s.watched, port) })),
+      toggleFavorite: (port) =>
+        set((s) => {
+          const had = s.favorites.includes(port);
+          const next = toggleInSortedList(s.favorites, port);
+          toast.success(had ? `Unfavorited :${port}` : `Favorited :${port}`);
+          return { favorites: next };
+        }),
+      toggleWatched: (port) =>
+        set((s) => {
+          const had = s.watched.includes(port);
+          const next = toggleInSortedList(s.watched, port);
+          toast.success(had ? `Unwatched :${port}` : `Watched :${port}`);
+          return { watched: next };
+        }),
 
       clearError: () => set({ error: null }),
 
@@ -122,13 +144,39 @@ export const useAppStore = create<State & Actions>()(
         set({ ports, tunnels });
       },
 
+      refreshNow: async () => {
+        const id = toast.loading("Refreshing ports...");
+        set({ isRefreshing: true, error: null });
+        try {
+          await get().refresh();
+          toast.success("Refreshed", { id });
+        } catch (e) {
+          const msg = String(e);
+          toast.error("Refresh failed", { id, description: msg });
+          set({ error: msg });
+        } finally {
+          set({ isRefreshing: false });
+        }
+      },
+
       openTunnel: async (port) => {
         set((s) => ({ busyPorts: { ...s.busyPorts, [port]: true }, error: null }));
+        const id = toast.loading(`Creating share link for :${port}...`);
+        await nextFrame();
         try {
-          await invoke<string>("open_tunnel", { port });
+          const url = await invoke<string>("open_tunnel", { port });
           await get().refresh();
+          toast.success(`Share link ready (:${port})`, {
+            id,
+            description: url,
+          });
         } catch (e) {
-          set({ error: String(e) });
+          const msg = String(e);
+          toast.error(`Create share link failed (:${port})`, {
+            id,
+            description: msg,
+          });
+          set({ error: msg });
         } finally {
           set((s) => ({ busyPorts: { ...s.busyPorts, [port]: false } }));
         }
@@ -136,11 +184,22 @@ export const useAppStore = create<State & Actions>()(
 
       renewTunnel: async (port) => {
         set((s) => ({ busyPorts: { ...s.busyPorts, [port]: true }, error: null }));
+        const id = toast.loading(`Renewing share link (:${port})...`);
+        await nextFrame();
         try {
-          await invoke<string>("renew_tunnel", { port });
+          const url = await invoke<string>("renew_tunnel", { port });
           await get().refresh();
+          toast.success(`Share link renewed (:${port})`, {
+            id,
+            description: url,
+          });
         } catch (e) {
-          set({ error: String(e) });
+          const msg = String(e);
+          toast.error(`Renew share link failed (:${port})`, {
+            id,
+            description: msg,
+          });
+          set({ error: msg });
         } finally {
           set((s) => ({ busyPorts: { ...s.busyPorts, [port]: false } }));
         }
@@ -148,11 +207,19 @@ export const useAppStore = create<State & Actions>()(
 
       closeTunnel: async (port) => {
         set((s) => ({ busyPorts: { ...s.busyPorts, [port]: true }, error: null }));
+        const id = toast.loading(`Closing share link (:${port})...`);
+        await nextFrame();
         try {
           await invoke<void>("close_tunnel", { port });
           await get().refresh();
+          toast.success(`Share link closed (:${port})`, { id });
         } catch (e) {
-          set({ error: String(e) });
+          const msg = String(e);
+          toast.error(`Close share link failed (:${port})`, {
+            id,
+            description: msg,
+          });
+          set({ error: msg });
         } finally {
           set((s) => ({ busyPorts: { ...s.busyPorts, [port]: false } }));
         }
@@ -161,6 +228,7 @@ export const useAppStore = create<State & Actions>()(
       stopAllTunnels: async () => {
         const tunnels = get().tunnels.slice();
         set({ error: null });
+        const id = toast.loading(`Closing ${tunnels.length} share link(s)...`);
         for (const t of tunnels) {
           try {
             // eslint-disable-next-line no-await-in-loop
@@ -169,11 +237,50 @@ export const useAppStore = create<State & Actions>()(
             // ignore
           }
         }
-        await get().refresh();
+        try {
+          await get().refresh();
+          toast.success("All tunnels closed", { id });
+        } catch (e) {
+          const msg = String(e);
+          toast.error("Close tunnels finished with errors", { id, description: msg });
+          set({ error: msg });
+        }
+      },
+
+      killPort: async (port, pid) => {
+        if (!Number.isFinite(pid) || pid <= 0) return;
+        set((s) => ({ busyPorts: { ...s.busyPorts, [port]: true }, error: null }));
+        const id = toast.loading(`Killing PID ${pid} (:${port})...`);
+        await nextFrame();
+        try {
+          await invoke<void>("kill_pid", { pid, force: true });
+          await get().refresh();
+          toast.success(`Killed PID ${pid}`, { id, description: `:${port}` });
+        } catch (e) {
+          const msg = String(e);
+          toast.error(`Kill failed (PID ${pid})`, { id, description: msg });
+          set({ error: msg });
+        } finally {
+          set((s) => ({ busyPorts: { ...s.busyPorts, [port]: false } }));
+        }
+      },
+
+      openExternalUrl: async (url) => {
+        try {
+          await invoke<void>("open_url", { url });
+          toast.success("Opening in browser...");
+        } catch (e) {
+          toast.error("Open failed", { description: String(e) });
+        }
       },
 
       copyText: async (value) => {
-        await navigator.clipboard.writeText(value);
+        try {
+          await navigator.clipboard.writeText(value);
+          toast.success("Copied");
+        } catch (e) {
+          toast.error("Copy failed", { description: String(e) });
+        }
       },
     }),
     {

@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+pub mod killer;
 pub mod scanner;
 
 #[derive(Debug, Clone, Serialize)]

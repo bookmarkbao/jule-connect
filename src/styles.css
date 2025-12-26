@@ -100,7 +100,7 @@
   }
 
   body {
-    @apply m-0 min-h-screen overflow-hidden bg-background text-foreground;
+    @apply m-0 h-full overflow-hidden bg-background text-foreground;
   }
 }
 

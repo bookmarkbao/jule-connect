@@ -7,7 +7,13 @@ import {
   type ColumnDef,
   type VisibilityState,
 } from "@tanstack/react-table";
-import { ChevronDown, ChevronUp, MoreHorizontal } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  DeleteIcon,
+  MoreHorizontal,
+} from "lucide-react";
+import { ClipLoader } from "react-spinners";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,8 +26,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { detectProcessType, processTypeLabel } from "@/features/ports/process-type";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  detectProcessType,
+  processTypeLabel,
+} from "@/features/ports/process-type";
 import type { PortInfo, SortKey, TunnelInfo } from "@/store/app-store";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
@@ -64,6 +80,7 @@ export function PortsTable({
   onRenew,
   onClose,
   onOpen,
+  onKill,
 }: {
   ports: PortInfo[];
   selectedPort: number | null;
@@ -81,6 +98,7 @@ export function PortsTable({
   onRenew: (port: number) => void;
   onClose: (port: number) => void;
   onOpen: (port: number) => void;
+  onKill: (port: number, pid: number) => void;
 }) {
   const columns = React.useMemo<ColumnDef<PortInfo>[]>(
     () => [
@@ -106,14 +124,21 @@ export function PortsTable({
               >
                 {isFavorite ? "★" : "☆"}
               </Button>
-              
             </div>
           );
         },
         enableSorting: true,
         sortingFn: (a, b) => {
-          const aP = favorites.has(a.original.port) ? 2 : watched.has(a.original.port) ? 1 : 0;
-          const bP = favorites.has(b.original.port) ? 2 : watched.has(b.original.port) ? 1 : 0;
+          const aP = favorites.has(a.original.port)
+            ? 2
+            : watched.has(a.original.port)
+            ? 1
+            : 0;
+          const bP = favorites.has(b.original.port)
+            ? 2
+            : watched.has(b.original.port)
+            ? 1
+            : 0;
           return aP === bP ? a.original.port - b.original.port : bP - aP;
         },
       },
@@ -126,12 +151,19 @@ export function PortsTable({
             sortState={column.getIsSorted()}
           />
         ),
-        cell: ({ row }) => <div className="font-mono"><span
+        cell: ({ row }) => (
+          <div className="font-mono">
+            <span
               className={[
                 "inline-block h-2 w-2 rounded-full",
-                row.original.is_active ? "bg-green-500" : "bg-muted-foreground/40",
+                row.original.is_active
+                  ? "bg-green-500"
+                  : "bg-muted-foreground/40",
               ].join(" ")}
-            />:{row.original.port}</div>,
+            />
+            :{row.original.port}
+          </div>
+        ),
         enableSorting: true,
       },
       {
@@ -144,7 +176,9 @@ export function PortsTable({
             sortState={column.getIsSorted()}
           />
         ),
-        cell: ({ row }) => <div className="font-mono">{row.original.process_name}</div>,
+        cell: ({ row }) => (
+          <div className="font-mono">{row.original.process_name}</div>
+        ),
         enableSorting: true,
       },
       {
@@ -156,7 +190,11 @@ export function PortsTable({
             sortState={column.getIsSorted()}
           />
         ),
-        cell: ({ row }) => <div className="font-mono text-muted-foreground">{row.original.pid || "-"}</div>,
+        cell: ({ row }) => (
+          <div className="font-mono text-muted-foreground">
+            {row.original.pid || "-"}
+          </div>
+        ),
         enableSorting: true,
       },
       {
@@ -188,7 +226,11 @@ export function PortsTable({
             sortState={column.getIsSorted()}
           />
         ),
-        cell: ({ row }) => <div className="min-w-0 truncate font-mono text-xs text-muted-foreground">{row.original.address}</div>,
+        cell: ({ row }) => (
+          <div className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+            {row.original.address}
+          </div>
+        ),
         enableSorting: true,
       },
       {
@@ -200,7 +242,11 @@ export function PortsTable({
             sortState={column.getIsSorted()}
           />
         ),
-        cell: ({ row }) => <div className="min-w-0 truncate font-mono text-xs text-muted-foreground">{row.original.user}</div>,
+        cell: ({ row }) => (
+          <div className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+            {row.original.user}
+          </div>
+        ),
         enableSorting: true,
       },
       {
@@ -209,8 +255,6 @@ export function PortsTable({
         header: () => <div className="text-right">Actions</div>,
         cell: ({ row }) => {
           const p = row.original;
-          const t = tunnelsByPort.get(p.port);
-          const isBusy = !!busyPorts[p.port];
           const isWatched = watched.has(p.port);
 
           return (
@@ -223,44 +267,57 @@ export function PortsTable({
               >
                 {isWatched ? "👁" : "👁‍🗨"}
               </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
-                    <span className="sr-only">Open menu</span>
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>{`Port :${p.port}`}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {t ? (
-                    <>
-                      <DropdownMenuItem onClick={() => onCopy(t.url)} disabled={isBusy}>
-                        Copy URL
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onRenew(p.port)} disabled={isBusy}>
-                        Renew
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onClose(p.port)} disabled={isBusy}>
-                        Close
-                      </DropdownMenuItem>
-                    </>
-                  ) : (
-                    <DropdownMenuItem onClick={() => onOpen(p.port)} disabled={isBusy || !p.is_active}>
-                      Share via Tunnel
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {/* kill port */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2"
+                disabled={!p.is_active || !p.pid || !!busyPorts[p.port]}
+                title={
+                  !p.is_active || !p.pid
+                    ? "No process to kill"
+                    : busyPorts[p.port]
+                    ? "Busy"
+                    : "Kill process"
+                }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!p.is_active || !p.pid) return;
+                  const ok = window.confirm(
+                    `Kill process PID ${p.pid} on port :${p.port}?`
+                  );
+                  if (!ok) return;
+                  onKill(p.port, p.pid);
+                }}
+              >
+                {busyPorts[p.port] ? (
+                  <ClipLoader size={16} color="currentColor" />
+                ) : (
+                  <DeleteIcon className="h-4 w-4" />
+                )}
+              </Button>
             </div>
           );
         },
       },
     ],
-    [favorites, watched, busyPorts, onToggleFavorite, onToggleWatched, onCopy, onRenew, onClose, onOpen, tunnelsByPort]
+    [
+      favorites,
+      watched,
+      busyPorts,
+      onToggleFavorite,
+      onToggleWatched,
+      onCopy,
+      onRenew,
+      onClose,
+      onOpen,
+      onKill,
+      tunnelsByPort,
+    ]
   );
 
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<VisibilityState>({});
 
   const sorting = React.useMemo(
     () => [{ id: SORT_KEY_TO_COL[sortKey], desc: !sortAsc }],
@@ -285,55 +342,64 @@ export function PortsTable({
   });
 
   return (
-        <ScrollArea className="h-full">
-        <Table className="min-w-[750px] table-fixed">
-          <TableHeader className="sticky top-0 z-10 bg-background">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className={widthClassNameForColumn(header.id)}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
+    <ScrollArea className="h-full">
+      <Table className="min-w-[750px] table-fixed">
+        <TableHeader className="sticky top-0 z-10 bg-background">
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <TableHead
+                  key={header.id}
+                  className={widthClassNameForColumn(header.id)}
+                >
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
+                </TableHead>
+              ))}
+            </TableRow>
+          ))}
+        </TableHeader>
+
+        <TableBody>
+          {table.getRowModel().rows?.length ? (
+            table.getRowModel().rows.map((row) => (
+              <TableRow
+                key={row.id}
+                data-state={
+                  selectedPort === row.original.port ? "selected" : undefined
+                }
+                className="cursor-pointer"
+                onClick={() => onSelectPort(row.original.port)}
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell
+                    key={cell.id}
+                    className={[
+                      widthClassNameForColumn(cell.column.id),
+                      cellClassNameForColumn(cell.column.id),
+                    ].join(" ")}
+                  >
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
                 ))}
               </TableRow>
-            ))}
-          </TableHeader>
-
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={selectedPort === row.original.port ? "selected" : undefined}
-                  className="cursor-pointer"
-                  onClick={() => onSelectPort(row.original.port)}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className={[widthClassNameForColumn(cell.column.id), cellClassNameForColumn(cell.column.id)].join(
-                        " "
-                      )}
-                    >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-        {/* 横向滚动条 */}
-        <ScrollBar orientation="horizontal" className="bottom-0" />
-        </ScrollArea>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={columns.length} className="h-24 text-center">
+                No results.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+      {/* 横向滚动条 */}
+      <ScrollBar orientation="horizontal" className="bottom-0" />
+    </ScrollArea>
   );
 }
 
@@ -351,8 +417,18 @@ function HeaderSortButton({
       <span className="flex items-center gap-1">
         <span>{title}</span>
         <span className="flex items-center">
-          <ChevronUp className={["h-3 w-3", sortState === "asc" ? "opacity-100" : "opacity-0"].join(" ")} />
-          <ChevronDown className={["h-3 w-3", sortState === "desc" ? "opacity-100" : "opacity-0"].join(" ")} />
+          <ChevronUp
+            className={[
+              "h-3 w-3",
+              sortState === "asc" ? "opacity-100" : "opacity-0",
+            ].join(" ")}
+          />
+          <ChevronDown
+            className={[
+              "h-3 w-3",
+              sortState === "desc" ? "opacity-100" : "opacity-0",
+            ].join(" ")}
+          />
         </span>
       </span>
     </Button>
@@ -360,7 +436,7 @@ function HeaderSortButton({
 }
 
 function widthClassNameForColumn(id: string) {
-  // if (id === "actions") return "w-[88px]";
+  if (id === "actions") return "w-[48px]";
   // if (id === "active") return "w-10";
   if (id === "port") return "w-[90px]";
   if (id === "process") return "w-[140px]";

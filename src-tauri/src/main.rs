@@ -13,14 +13,14 @@ use store::Store;
 use tunnel::manager::TunnelManager;
 
 pub struct AppState {
-    pub store: Store,
+    pub store: Arc<Store>,
     pub tunnels: Arc<Mutex<TunnelManager>>,
 }
 
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
-            let store = Store::load(app.handle())?;
+            let store = Arc::new(Store::load(app.handle())?);
             let tunnels = Arc::new(Mutex::new(TunnelManager::new()));
 
             app.manage(AppState {
@@ -38,7 +38,9 @@ fn main() {
             api::commands::list_tunnels,
             api::commands::open_tunnel,
             api::commands::close_tunnel,
-            api::commands::renew_tunnel
+            api::commands::renew_tunnel,
+            api::commands::kill_pid,
+            api::commands::open_url
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,24 +1,41 @@
 import { RefreshCw } from "lucide-react";
+import { ClipLoader } from "react-spinners";
 
 import { Button } from "@/components/ui/button";
+import { SidebarInput, SidebarTrigger } from "@/components/ui/sidebar";
 
 export function SiteHeader({
   title,
   onRefresh,
   refreshDisabled,
+  isRefreshing,
+  searchText,
+  onSearchTextChange,
 }: {
   title: string;
   onRefresh: () => void;
   refreshDisabled: boolean;
+  isRefreshing: boolean;
+  searchText: string;
+  onSearchTextChange: (value: string) => void;
 }) {
   return (
-    <header className="flex h-[var(--header-height)] items-center justify-between gap-2 border-b bg-background px-4">
-      <div className="text-sm font-semibold">{title}</div>
+    <header className="flex h-[var(--header-height)] items-center gap-2 border-b bg-background px-4">
+       <SidebarTrigger className="-ml-1" />
+      <div className="w-[320px]">
+        <SidebarInput
+          value={searchText}
+          onChange={(e) => onSearchTextChange(e.target.value)}
+          placeholder="Search ports, processes..."
+        />
+      </div>
       <Button onClick={onRefresh} variant="secondary" size="sm" disabled={refreshDisabled}>
-        <RefreshCw className="h-4 w-4" />
-        Refresh
+        {isRefreshing ? (
+          <ClipLoader size={16} color="currentColor" />
+        ) : (
+          <RefreshCw className="h-4 w-4" />
+        )}
       </Button>
     </header>
   );
 }
-
