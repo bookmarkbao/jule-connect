@@ -2,6 +2,13 @@
   "productName": "jule-connect",
   "version": "0.1.0",
   "identifier": "com.jule.connect",
+  "bundle": {
+    "icon": [
+      "icons/icon.icns",
+      "icons/icon.ico",
+      "icons/icon.png"
+    ]
+  },
   "build": {
     "beforeDevCommand": "npm run dev:ui",
     "beforeBuildCommand": "npm run build:ui",

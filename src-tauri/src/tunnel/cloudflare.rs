@@ -1,6 +1,7 @@
 use std::{
     io::{BufRead, BufReader},
     process::{Child, Command, Stdio},
+    path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
@@ -25,13 +26,105 @@ impl Default for CloudflareProvider {
     }
 }
 
+fn resolve_cloudflared_binary(configured: &str) -> Option<String> {
+    // 1) Explicit path in config
+    if looks_like_path(configured) && Path::new(configured).exists() {
+        return Some(configured.to_string());
+    }
+
+    // 2) Env override
+    if let Ok(p) = std::env::var("CLOUDFLARED_PATH") {
+        if !p.trim().is_empty() && Path::new(&p).exists() {
+            return Some(p);
+        }
+    }
+
+    // 3) Sidecar next to executable (Tauri externalBin pattern)
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            for name in candidate_names() {
+                let p = dir.join(name);
+                if p.exists() {
+                    return Some(p.to_string_lossy().to_string());
+                }
+            }
+
+            // 4) macOS app bundle Resources directory
+            // <App>.app/Contents/MacOS/<exe> -> Resources at ../Resources
+            if cfg!(target_os = "macos") {
+                if let Some(contents) = dir.parent() {
+                    let resources = contents.join("Resources");
+                    for name in candidate_names() {
+                        let p = resources.join(name);
+                        if p.exists() {
+                            return Some(p.to_string_lossy().to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 5) Common system install locations (packaged apps often don't inherit shell PATH)
+    for p in common_locations() {
+        if p.exists() {
+            return Some(p.to_string_lossy().to_string());
+        }
+    }
+
+    None
+}
+
+fn looks_like_path(s: &str) -> bool {
+    s.contains('/') || s.contains('\\')
+}
+
+fn candidate_names() -> Vec<&'static str> {
+    if cfg!(target_os = "windows") {
+        vec!["cloudflared.exe", "cloudflared"]
+    } else {
+        vec!["cloudflared"]
+    }
+}
+
+fn common_locations() -> Vec<PathBuf> {
+    if cfg!(target_os = "macos") {
+        return vec![
+            PathBuf::from("/opt/homebrew/bin/cloudflared"),
+            PathBuf::from("/usr/local/bin/cloudflared"),
+            PathBuf::from("/usr/bin/cloudflared"),
+        ];
+    }
+
+    if cfg!(target_os = "windows") {
+        let mut out = vec![
+            PathBuf::from(r"C:\ProgramData\chocolatey\bin\cloudflared.exe"),
+        ];
+        for var in ["ProgramFiles", "ProgramFiles(x86)", "LocalAppData"] {
+            if let Ok(root) = std::env::var(var) {
+                out.push(PathBuf::from(&root).join("Cloudflare").join("cloudflared.exe"));
+                out.push(PathBuf::from(&root).join("cloudflared").join("cloudflared.exe"));
+            }
+        }
+        return out;
+    }
+
+    vec![
+        PathBuf::from("/usr/local/bin/cloudflared"),
+        PathBuf::from("/usr/bin/cloudflared"),
+        PathBuf::from("/snap/bin/cloudflared"),
+    ]
+}
+
 impl TunnelProvider for CloudflareProvider {
     fn name(&self) -> &'static str {
         "cloudflare"
     }
 
     fn start(&self, port: u16) -> Result<(Child, String), TunnelError> {
-        let mut child = Command::new(&self.binary)
+        let bin = resolve_cloudflared_binary(&self.binary).unwrap_or_else(|| self.binary.clone());
+
+        let mut child = Command::new(&bin)
             .args([
                 "tunnel",
                 "--url",
@@ -42,7 +135,15 @@ impl TunnelProvider for CloudflareProvider {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|e| TunnelError::StartFailed(e.to_string()))?;
+            .map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    TunnelError::StartFailed(format!(
+                        "cloudflared not found. Install it and ensure it's accessible to the app, or set CLOUDFLARED_PATH.\nTried binary: {bin}"
+                    ))
+                } else {
+                    TunnelError::StartFailed(format!("cloudflared failed to start: {e}"))
+                }
+            })?;
 
         let url_slot: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
         let found = Arc::new(AtomicBool::new(false));

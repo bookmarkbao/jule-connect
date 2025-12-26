@@ -23,12 +23,21 @@
 - Node.js / npm
 - Rust toolchain（Tauri v2）
 - 已安装 `cloudflared`（用于 Cloudflare Quick Tunnel）
+  - 打包后的应用可能拿不到你终端里的 `PATH`，如果出现 `cloudflared not found`：
+    - 请确保 `cloudflared` 安装在常见路径（macOS：`/opt/homebrew/bin` 或 `/usr/local/bin`），或
+    - 设置环境变量 `CLOUDFLARED_PATH` 指向可执行文件完整路径（例如 `/opt/homebrew/bin/cloudflared`），或
+    - 将 `cloudflared` 作为 sidecar/资源随应用一起打包（后续可配置）。
 
 ## 开发
 
-- 安装依赖：`npm i`
+- 安装依赖：`npm i` / `yarn`
 - 启动桌面端：`npm run dev`（Tauri dev）
 - 开发端口：默认 `5177`；如需修改，同时改 `vite.config.ts` 和 `src-tauri/tauri.conf.json` 的 `build.devUrl`
+
+## 构建（macOS 安装包）
+
+- 构建：`npm run build` / `yarn build`
+- 产物：`.dmg` 位于 `src-tauri/target/release/bundle/dmg/`
 
 ## 使用说明（桌面端）
 
