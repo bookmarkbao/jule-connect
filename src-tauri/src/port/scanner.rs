@@ -44,11 +44,14 @@ fn scan_unix() -> Result<Vec<PortInfo>, ScanError> {
             continue;
         }
 
-        let command = cols[0].to_string();
+        let process_name = cols[0].to_string();
         let pid: u32 = match cols[1].parse() {
             Ok(v) => v,
             Err(_) => continue,
         };
+        let user = cols[2].to_string();
+        let fd = cols[3].to_string();
+        let address = cols[8].to_string();
         let name = cols[8];
         let port = parse_port_from_name(name);
         if let Some(port) = port {
@@ -56,7 +59,12 @@ fn scan_unix() -> Result<Vec<PortInfo>, ScanError> {
                 port,
                 pid,
                 protocol: "tcp".to_string(),
-                command: Some(command.clone()),
+                process_name: process_name.clone(),
+                address: address.clone(),
+                user: user.clone(),
+                fd: fd.clone(),
+                command: Some(process_name.clone()),
+                is_active: true,
             });
         }
     }
@@ -106,7 +114,12 @@ fn scan_windows() -> Result<Vec<PortInfo>, ScanError> {
                 port,
                 pid,
                 protocol: "tcp".to_string(),
+                process_name: "unknown".to_string(),
+                address: local.to_string(),
+                user: "-".to_string(),
+                fd: "-".to_string(),
                 command: None,
+                is_active: true,
             });
         }
     }

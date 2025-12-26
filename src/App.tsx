@@ -1,188 +1,218 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { RefreshCw } from "lucide-react";
+import { useEffect, useMemo } from "react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-
-type PortInfo = {
-  port: number;
-  pid: number;
-  protocol: string;
-  command?: string | null;
-};
-
-type TunnelInfo = {
-  port: number;
-  provider: string;
-  url: string;
-  started_at_ms: number;
-  last_renewed_at_ms: number;
-};
-
-function fmtTime(ms: number) {
-  const d = new Date(ms);
-  return d.toLocaleString();
-}
+import { AppSidebar } from "@/components/app-sidebar";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { SiteHeader } from "@/features/layout/header";
+import { PortDetailPane } from "@/features/ports/port-detail-pane";
+import { PortsTable } from "@/features/ports/ports-table";
+import {
+  buildTunnelsByPort,
+  computeCounts,
+  filterPorts,
+  portsWithPlaceholders,
+} from "@/features/ports/ports-selectors";
+import { TunnelsPane } from "@/features/tunnels/tunnels-pane";
+import { useAppStore } from "@/store/app-store";
 
 export default function App() {
-  const [ports, setPorts] = useState<PortInfo[]>([]);
-  const [tunnels, setTunnels] = useState<TunnelInfo[]>([]);
-  const [busy, setBusy] = useState<Record<number, boolean>>({});
-  const [error, setError] = useState<string | null>(null);
+  const ports = useAppStore((s) => s.ports);
+  const tunnels = useAppStore((s) => s.tunnels);
+  const busyPorts = useAppStore((s) => s.busyPorts);
+  const error = useAppStore((s) => s.error);
 
-  const tunnelsByPort = useMemo(() => {
-    const map = new Map<number, TunnelInfo>();
-    for (const t of tunnels) map.set(t.port, t);
-    return map;
-  }, [tunnels]);
+  const sidebar = useAppStore((s) => s.sidebar);
+  const selectedPort = useAppStore((s) => s.selectedPort);
+  const searchText = useAppStore((s) => s.searchText);
+  const minPort = useAppStore((s) => s.minPort);
+  const maxPort = useAppStore((s) => s.maxPort);
+  const favorites = useAppStore((s) => s.favorites);
+  const watched = useAppStore((s) => s.watched);
+  const sortKey = useAppStore((s) => s.sortKey);
+  const sortAsc = useAppStore((s) => s.sortAsc);
 
-  const refresh = useCallback(async () => {
-    setError(null);
-    const [p, t] = await Promise.all([
-      invoke<PortInfo[]>("list_ports"),
-      invoke<TunnelInfo[]>("list_tunnels")
-    ]);
-    setPorts(p);
-    setTunnels(t);
-  }, []);
+  const setSidebar = useAppStore((s) => s.setSidebar);
+  const setSelectedPort = useAppStore((s) => s.setSelectedPort);
+  const setSearchText = useAppStore((s) => s.setSearchText);
+  const setMinPort = useAppStore((s) => s.setMinPort);
+  const setMaxPort = useAppStore((s) => s.setMaxPort);
+  const resetFilters = useAppStore((s) => s.resetFilters);
+  const setSort = useAppStore((s) => s.setSort);
+  const toggleFavorite = useAppStore((s) => s.toggleFavorite);
+  const toggleWatched = useAppStore((s) => s.toggleWatched);
+  const refresh = useAppStore((s) => s.refresh);
+  const openTunnel = useAppStore((s) => s.openTunnel);
+  const renewTunnel = useAppStore((s) => s.renewTunnel);
+  const closeTunnel = useAppStore((s) => s.closeTunnel);
+  const stopAllTunnels = useAppStore((s) => s.stopAllTunnels);
+  const copyText = useAppStore((s) => s.copyText);
 
   useEffect(() => {
-    refresh().catch((e) => setError(String(e)));
+    refresh().catch(() => {});
     const timer = window.setInterval(() => {
       refresh().catch(() => {});
-    }, 2500);
+    }, 5000);
     return () => window.clearInterval(timer);
   }, [refresh]);
 
-  const onOpen = useCallback(
-    async (port: number) => {
-      setBusy((b) => ({ ...b, [port]: true }));
-      setError(null);
-      try {
-        await invoke<string>("open_tunnel", { port });
-        await refresh();
-      } catch (e) {
-        setError(String(e));
-      } finally {
-        setBusy((b) => ({ ...b, [port]: false }));
-      }
-    },
-    [refresh]
+  const tunnelsByPort = useMemo(() => buildTunnelsByPort(tunnels), [tunnels]);
+
+  const allPortsWithPlaceholders = useMemo(
+    () => portsWithPlaceholders(ports, favorites, watched),
+    [ports, favorites, watched]
   );
 
-  const onRenew = useCallback(
-    async (port: number) => {
-      setBusy((b) => ({ ...b, [port]: true }));
-      setError(null);
-      try {
-        await invoke<string>("renew_tunnel", { port });
-        await refresh();
-      } catch (e) {
-        setError(String(e));
-      } finally {
-        setBusy((b) => ({ ...b, [port]: false }));
-      }
-    },
-    [refresh]
+  const filteredPorts = useMemo(
+    () =>
+      filterPorts({
+        ports: allPortsWithPlaceholders,
+        sidebar,
+        favorites,
+        watched,
+        searchText,
+        minPort,
+        maxPort,
+      }),
+    [allPortsWithPlaceholders, sidebar, favorites, watched, searchText, minPort, maxPort]
   );
 
-  const onClose = useCallback(
-    async (port: number) => {
-      setBusy((b) => ({ ...b, [port]: true }));
-      setError(null);
-      try {
-        await invoke<void>("close_tunnel", { port });
-        await refresh();
-      } catch (e) {
-        setError(String(e));
-      } finally {
-        setBusy((b) => ({ ...b, [port]: false }));
-      }
-    },
-    [refresh]
+  const counts = useMemo(
+    () => computeCounts(ports, favorites, watched, tunnels),
+    [ports, favorites, watched, tunnels]
   );
 
-  const onCopy = useCallback(async (url: string) => {
-    await navigator.clipboard.writeText(url);
-  }, []);
+  const favoritesSet = useMemo(() => new Set(favorites), [favorites]);
+  const watchedSet = useMemo(() => new Set(watched), [watched]);
+
+  const selectedPortInfo = useMemo(() => {
+    if (selectedPort == null) return null;
+    return allPortsWithPlaceholders.find((p) => p.port === selectedPort) ?? null;
+  }, [selectedPort, allPortsWithPlaceholders]);
+
+  const selectedTunnel = useMemo(() => {
+    if (!selectedPortInfo) return null;
+    return tunnelsByPort.get(selectedPortInfo.port) ?? null;
+  }, [selectedPortInfo, tunnelsByPort]);
 
   return (
-    <div className="min-h-screen">
-      <div className="container py-6">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-lg font-semibold">jule-connect</h1>
-          <Button onClick={() => refresh()} variant="secondary" size="sm">
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </Button>
-        </div>
-        <div className="mt-1 text-sm text-muted-foreground">
-          内置 provider：Cloudflare Quick Tunnel（需要本机安装 `cloudflared`）
-        </div>
-        {error ? <div className="mt-3 text-sm text-destructive">{error}</div> : null}
+    <SidebarProvider
+      defaultOpen={true}
+      className="h-svh overflow-hidden"
+      style={
+        {
+          "--sidebar-width": "18rem",
+          "--header-height": "3rem",
+        } as React.CSSProperties
+      }
+    >
+      <AppSidebar
+        variant="inset"
+        active={sidebar}
+        onActiveChange={(k) => setSidebar(k)}
+        counts={counts}
+        searchText={searchText}
+        onSearchTextChange={(v) => setSearchText(v)}
+        minPort={minPort}
+        maxPort={maxPort}
+        onMinPortChange={(v) => setMinPort(v)}
+        onMaxPortChange={(v) => setMaxPort(v)}
+        onResetFilters={resetFilters}
+        onAddFavoritePort={() => {
+          const raw = window.prompt("Add favorite port (number):");
+          if (!raw) return;
+          const p = Number(raw);
+          if (!Number.isFinite(p)) return;
+          toggleFavorite(p);
+          setSidebar("favorites");
+        }}
+        onAddWatchedPort={() => {
+          const raw = window.prompt("Add watched port (number):");
+          if (!raw) return;
+          const p = Number(raw);
+          if (!Number.isFinite(p)) return;
+          toggleWatched(p);
+          setSidebar("watched");
+        }}
+      />
 
-        <div className="mt-4 grid gap-3">
-        {ports.map((p) => {
-          const t = tunnelsByPort.get(p.port);
-          const isBusy = !!busy[p.port];
-          return (
-            <Card key={p.port} className="p-4">
-              <div className="grid gap-3 md:grid-cols-[160px_1fr_auto] md:items-center">
-                <div className="space-y-1">
-                  <div className="font-mono text-sm">
-                    {p.protocol.toUpperCase()} : {p.port}
-                  </div>
-                  <div className="font-mono text-xs text-muted-foreground">pid: {p.pid}</div>
-                </div>
+      <SidebarInset className="h-svh">
+        <div className="flex h-full flex-col">
+          <SiteHeader
+            title={sidebar === "tunnels" ? "Cloudflare Tunnels" : "Ports"}
+            onRefresh={() => refresh()}
+            refreshDisabled={Object.values(busyPorts).some(Boolean)}
+          />
 
-                <div className="space-y-1">
-                  <div className="text-sm text-muted-foreground break-all">
-                    {p.command || "unknown process"}
-                  </div>
-                  {t ? (
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="secondary" className="font-mono">
-                          {t.provider}
-                        </Badge>
-                        <span className="font-mono text-sm break-all">{t.url}</span>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        renewed: {fmtTime(t.last_renewed_at_ms)}
-                      </div>
+          {error ? <div className="border-b px-4 py-2 text-sm text-destructive">{error}</div> : null}
+
+          <div className="flex min-h-0 flex-1">
+            <ResizablePanelGroup direction="horizontal" className="min-h-0 flex-1">
+              <ResizablePanel >
+                <div className="flex h-full min-w-0 flex-col">
+                  {sidebar === "tunnels" ? (
+                    <TunnelsPane
+                      tunnels={tunnels}
+                      onStopAll={() => stopAllTunnels()}
+                      onCopy={(url) => copyText(url)}
+                      onRenew={(port) => renewTunnel(port)}
+                      onClose={(port) => closeTunnel(port)}
+                    />
+                  ) : (
+                    <div className="min-h-0 flex-1">
+                      <PortsTable
+                        ports={filteredPorts}
+                        selectedPort={selectedPort}
+                        tunnelsByPort={tunnelsByPort}
+                        busyPorts={busyPorts}
+                        favorites={favoritesSet}
+                        watched={watchedSet}
+                        sortKey={sortKey}
+                        sortAsc={sortAsc}
+                        onSelectPort={(p) => setSelectedPort(p)}
+                        onSort={(k, asc) => setSort(k, asc)}
+                        onToggleFavorite={(p) => toggleFavorite(p)}
+                        onToggleWatched={(p) => toggleWatched(p)}
+                        onCopy={(url) => copyText(url)}
+                        onRenew={(p) => renewTunnel(p)}
+                        onClose={(p) => closeTunnel(p)}
+                        onOpen={(p) => openTunnel(p)}
+                      />
                     </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">not shared</div>
                   )}
-                </div>
 
-                <div className="flex flex-wrap gap-2 md:justify-end">
-                  {t ? (
-                    <>
-                      <Button onClick={() => onCopy(t.url)} disabled={isBusy} variant="outline" size="sm">
-                        Copy
-                      </Button>
-                      <Button onClick={() => onRenew(p.port)} disabled={isBusy} variant="secondary" size="sm">
-                        Renew
-                      </Button>
-                      <Button onClick={() => onClose(p.port)} disabled={isBusy} variant="destructive" size="sm">
-                        Close
-                      </Button>
-                    </>
-                  ) : (
-                    <Button onClick={() => onOpen(p.port)} disabled={isBusy} size="sm">
-                      Share
-                    </Button>
-                  )}
+                  <div className="border-t bg-background px-4 py-2 text-xs text-muted-foreground">
+                    {sidebar === "tunnels" ? (
+                      <span>{tunnels.length} tunnel(s)</span>
+                    ) : (
+                      <span>
+                        {filteredPorts.length} of {allPortsWithPlaceholders.length} ports
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </Card>
-          );
-        })}
+              </ResizablePanel>
+
+              <ResizableHandle withHandle />
+
+              <ResizablePanel >
+                <PortDetailPane
+                  port={selectedPortInfo}
+                  tunnel={selectedTunnel}
+                  isBusy={selectedPortInfo ? !!busyPorts[selectedPortInfo.port] : false}
+                  isFavorite={selectedPortInfo ? favoritesSet.has(selectedPortInfo.port) : false}
+                  isWatched={selectedPortInfo ? watchedSet.has(selectedPortInfo.port) : false}
+                  onToggleFavorite={(p) => toggleFavorite(p)}
+                  onToggleWatched={(p) => toggleWatched(p)}
+                  onCopy={(v) => copyText(v)}
+                  onOpenTunnel={(p) => openTunnel(p)}
+                  onRenewTunnel={(p) => renewTunnel(p)}
+                  onCloseTunnel={(p) => closeTunnel(p)}
+                />
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </div>
         </div>
-      </div>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
