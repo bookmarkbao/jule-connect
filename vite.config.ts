@@ -10,6 +10,14 @@ export default defineConfig({
       "@": path.resolve(path.dirname(fileURLToPath(import.meta.url)), "./src")
     }
   },
+  build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "index.html"),
+        popup: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "popup.html")
+      }
+    }
+  },
   server: {
     port: 5177,
     strictPort: true

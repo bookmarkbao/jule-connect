@@ -1,4 +1,4 @@
-use tauri::State;
+use tauri::{Manager, State};
 
 use crate::{
     port::{killer::kill_pid as kill_pid_impl, scanner::scan_listening_ports},
@@ -118,4 +118,30 @@ pub async fn open_url(url: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || open_url_impl(&url))
         .await
         .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub fn hide_tray_popup(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(w) = app.get_webview_window("tray-popup") {
+        let _ = w.hide();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn show_main_window(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(popup) = app.get_webview_window("tray-popup") {
+        let _ = popup.hide();
+    }
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+        let _ = w.set_focus();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn quit_app(app: tauri::AppHandle) -> Result<(), String> {
+    app.exit(0);
+    Ok(())
 }

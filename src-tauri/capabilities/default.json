@@ -1,7 +1,6 @@
 {
   "identifier": "default",
   "description": "Default capability for jule-connect",
-  "windows": ["main"],
+  "windows": ["main", "tray-popup"],
   "permissions": ["core:default"]
 }
-

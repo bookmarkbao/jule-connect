@@ -40,7 +40,10 @@ fn main() {
             api::commands::close_tunnel,
             api::commands::renew_tunnel,
             api::commands::kill_pid,
-            api::commands::open_url
+            api::commands::open_url,
+            api::commands::hide_tray_popup,
+            api::commands::show_main_window,
+            api::commands::quit_app
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
