@@ -1,7 +1,7 @@
 {
-  "productName": "jule-connect",
-  "version": "0.1.0",
-  "identifier": "com.jule.connect",
+  "productName": "Jule Connect",
+  "version": "1.0.1",
+  "identifier": "com.51jule.connect",
   "bundle": {
     "icon": [
       "icons/icon.icns",
