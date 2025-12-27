@@ -1,11 +1,14 @@
 {
   "name": "@jule-connect/desktop",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev:ui": "vite",
     "build:ui": "tsc -b && vite build",
     "gen:icons": "node scripts/gen-icons.mjs",
+    "release": "node scripts/release.mjs",
+    "publish:release": "node scripts/release.mjs --bump patch",
     "dev": "tauri dev",
     "build": "tauri build"
   },

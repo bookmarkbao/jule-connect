@@ -1,6 +1,6 @@
 [package]
-name = "jule-connect"
-version = "0.1.0"
+name = "Jule Connect"
+version = "1.0.1"
 edition = "2021"
 
 [dependencies]

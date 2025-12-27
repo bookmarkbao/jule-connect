@@ -43,6 +43,7 @@
 
 - 约定：推送 `vX.Y.Z` tag 自动打包并发布 GitHub Release（macOS / Windows）。
 - 文档：`docs/gitflow-release.md`
+- 推荐：`yarn release vX.Y.Z` 一键同步版本、提交、打 tag 并推送。
 
 ## 使用说明（桌面端）
 

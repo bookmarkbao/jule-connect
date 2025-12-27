@@ -16,6 +16,21 @@
 - Tag 的 `X.Y.Z` 必须与以下两个版本一致，否则 CI 会失败：
   - `src-tauri/tauri.conf.json` 的 `version`
   - `src-tauri/Cargo.toml` 的 `[package].version`
+- 推荐把 `package.json` 的 `version` 也保持一致（本项目已提供脚本自动同步）
+
+## 一键发版（推荐）
+
+在工作区干净（`git status` 没有改动）的情况下执行：
+
+- 指定版本发版：`yarn release v1.0.2`
+- 自动 patch 发版：`yarn publish:release`（从当前版本 +1）
+
+该命令会自动：
+
+- 统一修改版本（`package.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml`）
+- 提交 commit：`release: vX.Y.Z`
+- 打 tag：`vX.Y.Z`
+- `git push` 分支与 tag（触发 GitHub Actions 打包与发布）
 
 ## 发版流程（release 分支）
 
