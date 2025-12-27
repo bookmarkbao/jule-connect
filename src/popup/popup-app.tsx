@@ -1,9 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect } from "react";
+import { Cloud, Copy, ExternalLink, Globe, Power, Search, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "@/lib/toast";
 import { useAppStore } from "@/store/app-store";
 
@@ -23,9 +24,10 @@ export default function PopupApp() {
   const tunnels = useAppStore((s) => s.tunnels);
   const busyPorts = useAppStore((s) => s.busyPorts);
   const refresh = useAppStore((s) => s.refresh);
-  const refreshNow = useAppStore((s) => s.refreshNow);
   const closeTunnel = useAppStore((s) => s.closeTunnel);
   const copyText = useAppStore((s) => s.copyText);
+
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     refresh().catch(() => {});
@@ -41,136 +43,174 @@ export default function PopupApp() {
     return () => window.removeEventListener("blur", onBlur);
   }, []);
 
+  const killPort = async (pid: number) => {
+    try {
+      await invoke("kill_pid", { pid, force: true });
+      toast.success("Process killed");
+      refresh().catch(() => {});
+    } catch (e) {
+      toast.error("Failed to kill process", { description: String(e) });
+    }
+  };
+
+  const filteredPorts = ports.filter(
+    (p) =>
+      searchQuery === "" ||
+      p.port.toString().includes(searchQuery) ||
+      (p.process_name || "").toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const totalCount = ports.length;
+
   return (
-    <div className="flex h-full flex-col bg-background">
-      <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
-        <div className="min-w-0">
-          <div className="truncate text-sm font-semibold">Quick Connect</div>
-          <div className="truncate text-xs text-muted-foreground">
-            {tunnels.length} tunnel(s) · {ports.length} port(s)
-          </div>
+    <div className="flex h-full flex-col bg-background ">
+      {/* Search Header */}
+      <div className="flex items-center gap-2 border-b px-3 py-2">
+        <Globe className="size-5 shrink-0 text-muted-foreground" />
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-8 pl-8 pr-8 focus-visible:ring-0 focus-visible:ring-offset-0"
+          />
+          {searchQuery ? (
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="absolute right-1 top-1/2 size-6 -translate-y-1/2 text-muted-foreground hover:bg-muted"
+              aria-label="Clear search"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setSearchQuery("")}
+            >
+              <X className="size-4" />
+            </Button>
+          ) : null}
         </div>
-        <Button size="sm" variant="secondary" onClick={() => refreshNow()}>
-          Refresh
-        </Button>
+        <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-gray-100 text-[10px] text-gray-600" >
+          {totalCount}
+        </div>
       </div>
 
-      <ScrollArea className="min-h-0 flex-1">
+      <ScrollArea className="min-h-0 w-[339px] flex-1">
         <div className="px-3 py-2">
-          <div className="text-xs font-semibold text-muted-foreground">
-            Active Tunnels
+          {/* Cloudflare Tunnels Section */}
+          <div className="mb-2 flex items-center gap-2">
+            <Cloud className="size-5 text-orange-500 fill-orange-500" />
+            <div className="text-sm font-semibold text-foreground">
+              Cloudflare Tunnels
+            </div>
           </div>
 
-          <div className="mt-2 space-y-2">
+          <div className="space-y-1">
             {tunnels.length ? (
               tunnels.map((t) => (
                 <div
                   key={t.port}
-                  className="flex items-start gap-2 rounded-md border p-2"
+                  className="group flex items-center gap-1 rounded-md bg-muted/50 px-2 py-1.5"
                 >
-                  <div className="pt-1">
-                    <StatusDot ok={true} />
+                  <StatusDot ok={true} />
+                  <div className="w-14 shrink-0 text-sm font-semibold">
+                    :{t.port}
                   </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <div className="text-sm font-medium">:{t.port}</div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {t.provider}
-                      </div>
-                    </div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {t.url}
-                    </div>
+                  <div className="w-[180px] truncate text-sm text-cyan-600">
+                    {t.url}
                   </div>
-
-                  <div className="flex shrink-0 items-center gap-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => copyText(t.url)}
-                    >
-                      Copy
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => closeTunnel(t.port)}
-                      disabled={!!busyPorts[t.port]}
-                    >
-                      Stop
-                    </Button>
-                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-6 shrink-0"
+                    onClick={() => copyText(t.url)}
+                  >
+                    <Copy className="size-3.5" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-6 shrink-0 text-rose-500 hover:bg-rose-50 hover:text-rose-600"
+                    onClick={() => closeTunnel(t.port)}
+                    disabled={!!busyPorts[t.port]}
+                  >
+                    <X className="size-3.5" />
+                  </Button>
                 </div>
               ))
             ) : (
-              <div className="rounded-md border p-2 text-xs text-muted-foreground">
-                No active tunnels
+              <div className="py-2 text-center text-xs text-muted-foreground">
+                {searchQuery ? "No matching tunnels" : "No active tunnels"}
               </div>
             )}
           </div>
+          {filteredPorts.length > 0 && (
+            <>
+              <div className="mb-2 mt-3 flex items-center gap-2">
+                <Globe className="size-5 shrink-0 text-green-500" />
+                <div className="text-sm font-semibold text-foreground">
+                  Local Ports
+                </div>
+              </div>
 
-          <Separator className="my-3" />
-
-          <div className="text-xs font-semibold text-muted-foreground">
-            Local Ports
-          </div>
-          <div className="mt-2 space-y-2">
-            {ports.length ? (
-              ports.slice(0, 30).map((p) => (
-                <div
-                  key={`${p.protocol}:${p.address}:${p.port}:${p.pid}`}
-                  className="flex items-center gap-2 rounded-md border px-2 py-1.5"
-                >
-                  <StatusDot ok={p.is_active} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <div className="text-sm font-medium">:{p.port}</div>
-                      <div className="truncate text-xs text-muted-foreground">
+              <div className="space-y-1">
+                {filteredPorts.slice(0, 30).map((p) => {
+                  return (
+                    <div
+                      key={`${p.protocol}:${p.address}:${p.port}:${p.pid}`}
+                      className="group flex items-center gap-1 rounded-md bg-muted/50 px-2 py-1.5"
+                    >
+                      <StatusDot ok={p.is_active} />
+                      <div className="w-12 shrink-0 text-sm font-semibold">
+                        :{p.port}
+                      </div>
+                      <div className="w-[140px] truncate text-sm text-muted-foreground">
                         {p.process_name || "Unknown"}
                       </div>
+                      <div className="w-16 shrink-0 text-xs text-muted-foreground">
+                        PID {p.pid}
+                      </div>
+                      <div className="ml-2">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-6 shrink-0 text-rose-500 opacity-0 hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100 focus-visible:opacity-100"
+                          onClick={() => killPort(p.pid)}
+                        >
+                          <X className="size-3.5" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="truncate text-[11px] text-muted-foreground">
-                      {p.protocol.toUpperCase()} · {p.address} · PID {p.pid}
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-md border p-2 text-xs text-muted-foreground">
-                No ports detected
+                  );
+                })}
               </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
       </ScrollArea>
 
-      <div className="flex items-center justify-between gap-2 border-t px-3 py-2">
-        <div className="text-xs text-muted-foreground">
-          Popup closes on blur
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => invoke("show_main_window").catch(() => {})}
-          >
-            Open
-          </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => {
-              invoke("quit_app")
-                .then(() => {})
-                .catch((e) => toast.error("Quit failed", { description: String(e) }));
-            }}
-          >
-            Quit
-          </Button>
-        </div>
+      {/* Bottom Actions */}
+      <div className="flex items-center justify-end gap-2 border-t px-3 py-2">
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => invoke("show_main_window").catch(() => {})}
+        >
+          <ExternalLink className="size-3.5" />
+          Open JC
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => {
+            invoke("quit_app").catch((e) =>
+              toast.error("Quit failed", { description: String(e) })
+            );
+          }}
+        >
+          <Power className="size-3.5" />
+          Quit JC
+        </Button>
       </div>
     </div>
   );
 }
-

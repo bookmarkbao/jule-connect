@@ -28,19 +28,39 @@ fn ensure_tray_popup_window(app: &AppHandle) -> Result<()> {
         return Ok(());
     }
 
-    WebviewWindowBuilder::new(
-        app,
-        TRAY_POPUP_LABEL,
-        WebviewUrl::App("popup.html".into()),
-    )
-    .title("Quick Connect")
-    .visible(false)
-    .resizable(false)
-    .decorations(false)
-    .always_on_top(true)
-    .skip_taskbar(true)
-    .inner_size(TRAY_POPUP_WIDTH, TRAY_POPUP_HEIGHT)
-    .build()?;
+    let url = if cfg!(target_os = "macos") {
+        WebviewUrl::App("popup.html?mode=system".into())
+    } else {
+        WebviewUrl::App("popup.html".into())
+    };
+
+    let mut builder = WebviewWindowBuilder::new(app, TRAY_POPUP_LABEL, url)
+        .title("Quick Connect")
+        .visible(false)
+        .resizable(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .inner_size(TRAY_POPUP_WIDTH, TRAY_POPUP_HEIGHT);
+
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder
+            .decorations(true)
+            .title_bar_style(tauri::TitleBarStyle::Overlay)
+            .hidden_title(true)
+            .traffic_light_position(tauri::LogicalPosition::new(-10_000.0, -10_000.0));
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        builder = builder
+            .decorations(false)
+            .transparent(true)
+            .background_color(Color(0, 0, 0, 0))
+            .shadow(true);
+    }
+
+    builder.build()?;
 
     Ok(())
 }
