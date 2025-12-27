@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  validate-version:
+    name: Validate version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Ensure tag matches app version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="${GITHUB_REF_NAME#v}"
+          TAURI_VERSION="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+
+          if [[ "$TAG" != "$TAURI_VERSION" ]]; then
+            echo "Tag version ($TAG) does not match src-tauri/tauri.conf.json version ($TAURI_VERSION)"
+            exit 1
+          fi
+
+          CARGO_VERSION="$(node -e "const fs=require('fs');const m=fs.readFileSync('./src-tauri/Cargo.toml','utf8').match(/^version\\s*=\\s*\\\"([^\\\"]+)\\\"/m); if(!m) process.exit(2); console.log(m[1]);")"
+          if [[ "$TAG" != "$CARGO_VERSION" ]]; then
+            echo "Tag version ($TAG) does not match src-tauri/Cargo.toml version ($CARGO_VERSION)"
+            exit 1
+          fi
+
+  build:
+    name: Build (${{ matrix.os }})
+    needs: validate-version
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri -> src-tauri/target
+
+      - name: Install Windows bundler deps
+        if: runner.os == 'Windows'
+        run: choco install wixtoolset nsis -y
+
+      - name: Install JS deps
+        run: npm install
+
+      - name: Build (Tauri)
+        run: npm run build
+
+      - name: Upload bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundles-${{ runner.os }}
+          if-no-files-found: error
+          path: |
+            src-tauri/target/release/bundle/**/*
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.app.tar.gz
+            artifacts/**/*.msi
+            artifacts/**/*.exe
+            artifacts/**/*.zip

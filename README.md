@@ -39,6 +39,11 @@
 - 构建：`npm run build` / `yarn build`
 - 产物：`.dmg` 位于 `src-tauri/target/release/bundle/dmg/`
 
+## 发版（GitFlow + Tag 自动打包）
+
+- 约定：推送 `vX.Y.Z` tag 自动打包并发布 GitHub Release（macOS / Windows）。
+- 文档：`docs/gitflow-release.md`
+
 ## 使用说明（桌面端）
 
 - **刷新端口列表**：顶部刷新按钮会扫描本机监听端口。
