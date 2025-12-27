@@ -5,6 +5,7 @@
   "scripts": {
     "dev:ui": "vite",
     "build:ui": "tsc -b && vite build",
+    "gen:icons": "node scripts/gen-icons.mjs",
     "dev": "tauri dev",
     "build": "tauri build"
   },
