@@ -1,6 +1,6 @@
 [package]
 name = "jule-connect"
-version = "1.0.3"
+version = "1.0.4"
 edition = "2021"
 
 [dependencies]
@@ -12,4 +12,5 @@ regex = "1"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+
 
