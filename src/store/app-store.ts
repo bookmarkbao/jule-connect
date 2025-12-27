@@ -70,7 +70,7 @@ type Actions = {
   renewTunnel: (port: number) => Promise<void>;
   closeTunnel: (port: number) => Promise<void>;
   stopAllTunnels: () => Promise<void>;
-  killPort: (port: number, pid: number) => Promise<void>;
+  killPort: (port: number, pid: number, force?: boolean) => Promise<void>;
   openExternalUrl: (url: string) => Promise<void>;
 
   copyText: (value: string) => Promise<void>;
@@ -247,18 +247,26 @@ export const useAppStore = create<State & Actions>()(
         }
       },
 
-      killPort: async (port, pid) => {
+      killPort: async (port, pid, force = true) => {
         if (!Number.isFinite(pid) || pid <= 0) return;
         set((s) => ({ busyPorts: { ...s.busyPorts, [port]: true }, error: null }));
-        const id = toast.loading(`Killing PID ${pid} (:${port})...`);
+        const id = toast.loading(
+          force ? `Force killing PID ${pid} (:${port})...` : `Quitting PID ${pid} (:${port})...`
+        );
         await nextFrame();
         try {
-          await invoke<void>("kill_pid", { pid, force: true });
+          await invoke<void>("kill_pid", { pid, force });
           await get().refresh();
-          toast.success(`Killed PID ${pid}`, { id, description: `:${port}` });
+          toast.success(force ? `Killed PID ${pid}` : `Quit PID ${pid}`, {
+            id,
+            description: `:${port}`,
+          });
         } catch (e) {
           const msg = String(e);
-          toast.error(`Kill failed (PID ${pid})`, { id, description: msg });
+          toast.error(force ? `Kill failed (PID ${pid})` : `Quit failed (PID ${pid})`, {
+            id,
+            description: msg,
+          });
           set({ error: msg });
         } finally {
           set((s) => ({ busyPorts: { ...s.busyPorts, [port]: false } }));

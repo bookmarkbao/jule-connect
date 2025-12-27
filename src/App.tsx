@@ -203,7 +203,7 @@ export default function App() {
                         onRenew={(p) => renewTunnel(p)}
                         onClose={(p) => closeTunnel(p)}
                         onOpen={(p) => openTunnel(p)}
-                        onKill={(port, pid) => killPort(port, pid)}
+                        onKill={(port, pid, force) => killPort(port, pid, force)}
                       />
                     </div>
                   )}

@@ -94,7 +94,7 @@ export function PortsTable({
   onRenew: (port: number) => void;
   onClose: (port: number) => void;
   onOpen: (port: number) => void;
-  onKill: (port: number, pid: number) => void;
+  onKill: (port: number, pid: number, force?: boolean) => void;
 }) {
   const columns = React.useMemo<ColumnDef<PortInfo>[]>(
     () => [
@@ -283,7 +283,36 @@ export function PortsTable({
                   <EyeOff className="h-4 w-4" />
                 )}
               </Button>
-              {/* kill port */}
+              {/* quit process (SIGTERM) */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700 dark:text-amber-500 dark:hover:text-amber-400"
+                disabled={!p.is_active || !p.pid || !!busyPorts[p.port]}
+                title={
+                  !p.is_active || !p.pid
+                    ? "No process to quit"
+                    : busyPorts[p.port]
+                    ? "Busy"
+                    : "Quit process (SIGTERM)"
+                }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!p.is_active || !p.pid) return;
+                  const ok = window.confirm(
+                    `Quit process PID ${p.pid} on port :${p.port}?`
+                  );
+                  if (!ok) return;
+                  onKill(p.port, p.pid, false);
+                }}
+              >
+                {busyPorts[p.port] ? (
+                  <ClipLoader size={16} color="currentColor" />
+                ) : (
+                  <X className="size-4" />
+                )}
+              </Button>
+              {/* force kill (SIGKILL) */}
               <Button
                 variant="ghost"
                 size="sm"
@@ -294,22 +323,22 @@ export function PortsTable({
                     ? "No process to kill"
                     : busyPorts[p.port]
                     ? "Busy"
-                    : "Kill process"
+                    : "Force kill (SIGKILL)"
                 }
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!p.is_active || !p.pid) return;
                   const ok = window.confirm(
-                    `Kill process PID ${p.pid} on port :${p.port}?`
+                    `Force kill PID ${p.pid} on port :${p.port}?`
                   );
                   if (!ok) return;
-                  onKill(p.port, p.pid);
+                  onKill(p.port, p.pid, true);
                 }}
               >
                 {busyPorts[p.port] ? (
                   <ClipLoader size={16} color="currentColor" />
                 ) : (
-                  <X className="size-4" />
+                  <Skull className="size-4" />
                 )}
               </Button>
             </div>

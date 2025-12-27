@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::Path;
 use std::process::Command;
 
 use thiserror::Error;
@@ -20,8 +21,25 @@ pub fn scan_listening_ports() -> Result<Vec<PortInfo>, ScanError> {
 }
 
 fn scan_unix() -> Result<Vec<PortInfo>, ScanError> {
-    let out = Command::new("lsof")
-        .args(["-iTCP", "-sTCP:LISTEN", "-P", "-n"])
+    // In packaged GUI apps, PATH can be minimal/unexpected. Prefer absolute paths.
+    let lsof_cmd = if cfg!(target_os = "macos") {
+        if Path::new("/usr/sbin/lsof").exists() {
+            "/usr/sbin/lsof"
+        } else if Path::new("/usr/bin/lsof").exists() {
+            "/usr/bin/lsof"
+        } else {
+            "lsof"
+        }
+    } else if Path::new("/usr/bin/lsof").exists() {
+        "/usr/bin/lsof"
+    } else if Path::new("/usr/sbin/lsof").exists() {
+        "/usr/sbin/lsof"
+    } else {
+        "lsof"
+    };
+
+    let out = Command::new(lsof_cmd)
+        .args(["-iTCP", "-sTCP:LISTEN", "-P", "-n", "+c", "0"])
         .output()
         .map_err(|e| ScanError::CommandFailed(e.to_string()))?;
 
