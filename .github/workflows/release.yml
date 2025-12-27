@@ -37,12 +37,21 @@ jobs:
           fi
 
   build:
-    name: Build (${{ matrix.os }})
+    name: Build (${{ matrix.name }})
     needs: validate-version
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        include:
+          - name: macos-arm64
+            os: macos-latest
+            target: aarch64-apple-darwin
+          - name: macos-x64
+            os: macos-latest
+            target: x86_64-apple-darwin
+          - name: windows-x64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -58,6 +67,10 @@ jobs:
           workspaces: |
             src-tauri -> src-tauri/target
 
+      - name: Add Rust targets (macOS)
+        if: runner.os == 'macOS'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
       - name: Install Windows bundler deps
         if: runner.os == 'Windows'
         run: choco install wixtoolset nsis -y
@@ -66,15 +79,39 @@ jobs:
         run: npm install
 
       - name: Build (Tauri)
-        run: npm run build
+        run: npm run build -- --target ${{ matrix.target }}
+
+      - name: Create Windows portable zip
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $targetBundleDir = "src-tauri/target/${{ matrix.target }}/release/bundle"
+          if (!(Test-Path $targetBundleDir)) {
+            $targetBundleDir = "src-tauri/target/release/bundle"
+          }
+
+          $appDir = Join-Path $targetBundleDir "app"
+          if (!(Test-Path $appDir)) {
+            throw "Tauri app bundle not found at: $appDir"
+          }
+
+          $zipName = "jule-connect_${{ github.ref_name }}_windows_x64_portable.zip"
+          $zipPath = Join-Path $targetBundleDir $zipName
+          if (Test-Path $zipPath) {
+            Remove-Item $zipPath -Force
+          }
+
+          Compress-Archive -Path (Join-Path $appDir "*") -DestinationPath $zipPath
 
       - name: Upload bundles
         uses: actions/upload-artifact@v4
         with:
-          name: bundles-${{ runner.os }}
+          name: bundles-${{ matrix.name }}
           if-no-files-found: error
           path: |
-            src-tauri/target/release/bundle/**/*
+            src-tauri/target/**/release/bundle/**/*
 
   release:
     name: Create GitHub Release
