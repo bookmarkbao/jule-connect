@@ -87,23 +87,41 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
 
-          $targetBundleDir = "src-tauri/target/${{ matrix.target }}/release/bundle"
-          if (!(Test-Path $targetBundleDir)) {
-            $targetBundleDir = "src-tauri/target/release/bundle"
-          }
-
-          $appDir = Join-Path $targetBundleDir "app"
-          if (!(Test-Path $appDir)) {
-            throw "Tauri app bundle not found at: $appDir"
-          }
-
           $zipName = "jule-connect_${{ github.ref_name }}_windows_x64_portable.zip"
-          $zipPath = Join-Path $targetBundleDir $zipName
-          if (Test-Path $zipPath) {
-            Remove-Item $zipPath -Force
+          $targetReleaseDir = "src-tauri/target/${{ matrix.target }}/release"
+          if (!(Test-Path $targetReleaseDir)) {
+            $targetReleaseDir = "src-tauri/target/release"
           }
 
-          Compress-Archive -Path (Join-Path $appDir "*") -DestinationPath $zipPath
+          $targetBundleDir = Join-Path $targetReleaseDir "bundle"
+          Write-Host "Release dir: $targetReleaseDir"
+          if (Test-Path $targetBundleDir) {
+            Write-Host "Bundle dir: $targetBundleDir"
+            Get-ChildItem -Recurse -Depth 3 $targetBundleDir | Select-Object FullName
+          }
+
+          $exePath = Join-Path $targetReleaseDir "jule-connect.exe"
+          if (!(Test-Path $exePath)) {
+            $candidates = Get-ChildItem -Path $targetReleaseDir -Filter "*.exe" |
+              Where-Object { $_.Name -notmatch "setup|installer|uninstall" } |
+              Select-Object -First 1
+            if ($null -eq $candidates) {
+              throw "Portable exe not found in: $targetReleaseDir"
+            }
+            $exePath = $candidates.FullName
+          }
+
+          $portableDir = Join-Path $targetReleaseDir "portable"
+          if (Test-Path $portableDir) { Remove-Item $portableDir -Recurse -Force }
+          New-Item -ItemType Directory -Path $portableDir | Out-Null
+
+          Copy-Item $exePath -Destination $portableDir
+          Get-ChildItem -Path $targetReleaseDir -Filter "*.dll" | ForEach-Object { Copy-Item $_.FullName -Destination $portableDir }
+
+          $zipPath = Join-Path $targetReleaseDir $zipName
+          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+
+          Compress-Archive -Path (Join-Path $portableDir "*") -DestinationPath $zipPath
 
       - name: Upload bundles
         uses: actions/upload-artifact@v4

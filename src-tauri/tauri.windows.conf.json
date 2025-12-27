@@ -1,6 +1,6 @@
 {
   "bundle": {
     "active": true,
-    "targets": ["app", "msi", "nsis"]
+    "targets": ["msi", "nsis"]
   }
 }
