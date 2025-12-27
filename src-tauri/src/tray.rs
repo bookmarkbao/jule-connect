@@ -56,7 +56,7 @@ fn ensure_tray_popup_window(app: &AppHandle) -> Result<()> {
         builder = builder
             .decorations(false)
             .transparent(true)
-            .background_color(Color(0, 0, 0, 0))
+            .background_color(tauri::window::Color(0, 0, 0, 0))
             .shadow(true);
     }
 
