@@ -287,7 +287,7 @@ export function PortsTable({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 px-2 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700 dark:text-amber-500 dark:hover:text-amber-400"
+                className="h-8 px-2 text-red-600 hover:bg-amber-500/10 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400"
                 disabled={!p.is_active || !p.pid || !!busyPorts[p.port]}
                 title={
                   !p.is_active || !p.pid
@@ -310,35 +310,6 @@ export function PortsTable({
                   <ClipLoader size={16} color="currentColor" />
                 ) : (
                   <X className="size-4" />
-                )}
-              </Button>
-              {/* force kill (SIGKILL) */}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2 text-red-500 hover:bg-red-500/10 hover:text-red-600"
-                disabled={!p.is_active || !p.pid || !!busyPorts[p.port]}
-                title={
-                  !p.is_active || !p.pid
-                    ? "No process to kill"
-                    : busyPorts[p.port]
-                    ? "Busy"
-                    : "Force kill (SIGKILL)"
-                }
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!p.is_active || !p.pid) return;
-                  const ok = window.confirm(
-                    `Force kill PID ${p.pid} on port :${p.port}?`
-                  );
-                  if (!ok) return;
-                  onKill(p.port, p.pid, true);
-                }}
-              >
-                {busyPorts[p.port] ? (
-                  <ClipLoader size={16} color="currentColor" />
-                ) : (
-                  <Skull className="size-4" />
                 )}
               </Button>
             </div>
